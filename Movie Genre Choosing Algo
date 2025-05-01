@@ -1,0 +1,77 @@
+This is with out any kinda Built in functions.
+
+
+# 1. Imports
+import pandas as pd
+import re
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import LinearSVC
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import classification_report, accuracy_score
+
+# 2. Load Dataset
+df = pd.read_csv("movies.csv")  # Make sure your dataset path is correct
+
+# 3. Basic Cleaning (INLINE)
+df = df[['plot', 'genre']].dropna()
+df['plot'] = df['plot'].astype(str).apply(
+    lambda x: re.sub(r'\s+', ' ', re.sub(r'[^a-zA-Z0-9\s]', '', x.lower())).strip()
+)
+
+# If there are multiple genres, take only the first one
+df['genre'] = df['genre'].apply(lambda x: x.split(',')[0].strip())
+
+# 4. Encode Labels
+label_encoder = LabelEncoder()
+df['genre_encoded'] = label_encoder.fit_transform(df['genre'])
+
+# 5. Train/Test Split
+X_train, X_test, y_train, y_test = train_test_split(
+    df['plot'], 
+    df['genre_encoded'], 
+    test_size=0.2, 
+    random_state=42, 
+    stratify=df['genre_encoded']
+)
+
+# 6. Choose Model (INLINE)
+model_choice = "logistic"  # Options: 'logistic', 'naive_bayes', 'svm'
+
+if model_choice == "logistic":
+    classifier = LogisticRegression(max_iter=1000, C=1.0)
+elif model_choice == "naive_bayes":
+    classifier = MultinomialNB()
+elif model_choice == "svm":
+    classifier = LinearSVC()
+else:
+    raise ValueError("Invalid model choice. Choose from 'logistic', 'naive_bayes', 'svm'.")
+
+# 7. Build Pipeline
+pipeline = Pipeline([
+    ('tfidf', TfidfVectorizer(stop_words='english', max_features=5000)),
+    ('clf', classifier)
+])
+
+# 8. Train Model
+pipeline.fit(X_train, y_train)
+
+# 9. Evaluate
+y_pred = pipeline.predict(X_test)
+
+print("\n✅ Accuracy:", accuracy_score(y_test, y_pred))
+print("\n✅ Classification Report:\n", classification_report(
+    y_test, y_pred, target_names=label_encoder.classes_
+))
+
+# 10. Predict Single Example (INLINE)
+sample_plot = "A group of astronauts travel through a wormhole in search of a new home for humanity."
+sample_plot_clean = re.sub(r'\s+', ' ', re.sub(r'[^a-zA-Z0-9\s]', '', sample_plot.lower())).strip()
+
+sample_pred = pipeline.predict([sample_plot_clean])
+predicted_genre = label_encoder.inverse_transform(sample_pred)
+
+print(f"\n🎬 Predicted Genre: {predicted_genre[0]}")
